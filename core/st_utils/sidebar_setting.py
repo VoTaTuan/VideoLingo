@@ -18,22 +18,25 @@ def config_input(label, key, help=None, placeholder=None):
 def burned_subtitles_settings():
     """Which subtitles are burned into the subtitle video and into the dubbed video."""
     from core.utils.subtitle_style import BURN_MODES, BURN_MODE_KEYS, get_burn_mode
-    labels = {"bilingual": t("Bilingual"), "translation": t("Translation only"), "source": t("Source only")}
+    labels = {
+        "bilingual": t("Bilingual"),
+        "translation": t("Translation only"),
+        "source": t("Source only"),
+    }
     columns = st.columns(2)
     for column, video, label in zip(columns, ("subtitle", "dubbed"), (t("Subtitle video"), t("Dubbed video"))):
-        key = BURN_MODE_KEYS[video][0]
+        cfg_key = BURN_MODE_KEYS[video][0]
         mode = get_burn_mode(video)
         with column:
             selected = st.selectbox(
                 label,
                 options=list(BURN_MODES),
-                index=BURN_MODES.index(mode),
-                format_func=labels.get,
+                index=BURN_MODES.index(mode) if mode in BURN_MODES else 0,
+                format_func=lambda x: labels.get(x, x),
                 help=t("Which subtitles are burned into this video"),
-                key=f"burn_mode_{video}",
             )
         if selected != mode:
-            update_key(key, selected, add_missing=True)
+            update_key(cfg_key, selected, add_missing=True)
             st.rerun()
 
 
@@ -78,7 +81,7 @@ def recognition_languages(configured=None):
     """Label -> code for the recognition language dropdown: every Qwen3-ASR language."""
     from core.asr_backend.qwen_asr_local import ISO_TO_QWEN
 
-    langs = {"Auto": "auto"}
+    langs = {t("Auto"): "auto"}
     for code in [*LANGUAGE_LABELS, *ISO_TO_QWEN]:
         if code in ISO_TO_QWEN and code not in langs.values():
             langs[LANGUAGE_LABELS.get(code, ISO_TO_QWEN[code])] = code
@@ -125,7 +128,123 @@ def page_setting():
     )
 
     with st.expander(t("LLM Configuration"), expanded=True):
-        config_input(t("API_KEY"), "api.key", placeholder=t("Enter your API key"))
+        from core.utils.llm_rotator import rotator
+
+        # Preset providers quick selector
+        st.markdown(f"**{t('Quick Presets')}**")
+        p_col1, p_col2, p_col3 = st.columns(3)
+        with p_col1:
+            if st.button("⚡ Gemini", key="preset_gemini", use_container_width=True, help="Google Gemini 1.5 Flash (Free)"):
+                update_key("api.base_url", "https://generativelanguage.googleapis.com/v1beta/openai")
+                update_key("api.model", "gemini-1.5-flash")
+                update_key("api.llm_support_json", True)
+                rotator.set_auth_mode("gemini_accounts")
+                st.rerun()
+        with p_col2:
+            if st.button("🌟 DeepSeek", key="preset_deepseek", use_container_width=True, help="DeepSeek-Chat"):
+                update_key("api.base_url", "https://api.deepseek.com/v1")
+                update_key("api.model", "deepseek-chat")
+                update_key("api.llm_support_json", True)
+                rotator.set_auth_mode("key_pool")
+                st.rerun()
+        with p_col3:
+            if st.button("🤖 OpenAI", key="preset_openai", use_container_width=True, help="GPT-4o mini"):
+                update_key("api.base_url", "https://api.openai.com/v1")
+                update_key("api.model", "gpt-4o-mini")
+                update_key("api.llm_support_json", True)
+                rotator.set_auth_mode("key_pool")
+                st.rerun()
+
+        # Connection Mode selection
+        auth_mode_options = {
+            "key_pool": t("🔑 Danh sách API Key (Xoay vòng)"),
+            "gemini_accounts": t("👤 Tài khoản Gemini (Nhiều tài khoản)"),
+        }
+        current_auth_mode = rotator.get_auth_mode()
+        selected_auth_mode = st.radio(
+            t("Phương thức kết nối AI"),
+            options=list(auth_mode_options.keys()),
+            format_func=lambda x: auth_mode_options.get(x, x),
+            index=list(auth_mode_options.keys()).index(current_auth_mode) if current_auth_mode in auth_mode_options else 0,
+            horizontal=True,
+        )
+        if selected_auth_mode != current_auth_mode:
+            rotator.set_auth_mode(selected_auth_mode)
+            st.rerun()
+
+        if selected_auth_mode == "gemini_accounts":
+            # Gemini Accounts Manager
+            accounts = rotator.get_gemini_accounts()
+            st.markdown(f"**{t('Danh sách tài khoản Google / Gemini')}:** ({len(accounts)} {t('tài khoản')})")
+            
+            for a_idx, acc in enumerate(accounts):
+                a_col1, a_col2 = st.columns([4, 1])
+                with a_col1:
+                    masked = rotator.mask_key(acc.get("key", ""))
+                    label = acc.get("label") or acc.get("email") or f"Tài khoản {a_idx + 1}"
+                    st.markdown(f"👤 **{label}** (`{masked}`)")
+                with a_col2:
+                    if st.button("🗑️", key=f"del_gemini_acc_{a_idx}"):
+                        accounts.pop(a_idx)
+                        rotator.set_gemini_accounts(accounts)
+                        st.rerun()
+
+            st.markdown(
+                """
+                <div style="background: rgba(66, 133, 244, 0.08); border: 1px solid rgba(66, 133, 244, 0.3); border-radius: 6px; padding: 10px 12px; margin: 8px 0; font-size: 0.85rem; line-height: 1.5;">
+                    💡 <b>Cách lấy Khóa API Gemini chính thức (Miễn phí 100%):</b><br>
+                    1. Mở trang Google AI Studio: <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #4285F4; font-weight: bold; text-decoration: underline;">https://aistudio.google.com/apikey</a><br>
+                    2. Bấm <b>"Create API key"</b> (Tạo khóa) &rarr; Copy chuỗi mã <code>AIzaSy...</code> dán vào ô bên dưới.<br>
+                    <i>(Mỗi tài khoản Google được cấp miễn phí 1.500 lượt/ngày. Dùng API chính thức sẽ an toàn tuyệt đối, không sợ bị khóa tài khoản như dùng cookie web!)</i>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            with st.expander(t("➕ Thêm tài khoản Gemini mới"), expanded=(len(accounts) == 0)):
+                new_acc_label = st.text_input(t("Tên hoặc Email tài khoản:"), placeholder="user1@gmail.com", key="input_gemini_email")
+                new_acc_key = st.text_input(t("Khóa API Gemini của tài khoản này:"), type="password", placeholder="AIzaSy...", key="input_gemini_key", help=t("Lấy miễn phí tại https://aistudio.google.com/apikey"))
+                if st.button(t("Lưu tài khoản vào danh sách xoay vòng"), use_container_width=True, key="save_gemini_acc"):
+                    if new_acc_key.strip():
+                        accounts.append({
+                            "email": new_acc_label.strip() or f"Tài khoản {len(accounts) + 1}",
+                            "label": new_acc_label.strip() or f"Tài khoản {len(accounts) + 1}",
+                            "key": new_acc_key.strip()
+                        })
+                        rotator.set_gemini_accounts(accounts)
+                        st.toast(t("Đã thêm tài khoản thành công!"), icon="✅")
+                        st.rerun()
+                    else:
+                        st.warning(t("Vui lòng nhập Khóa API của tài khoản!"))
+
+        else:
+            # Multi-Key Pool Mode
+            pool_keys = rotator.get_pool_keys()
+            keys_text = "\n".join(pool_keys)
+            entered_keys_text = st.text_area(
+                t("Danh sách API Key (mỗi dòng 1 Key để tự động xoay):"),
+                value=keys_text,
+                placeholder=t("Dán một hoặc nhiều API Key tại đây, mỗi dòng một Key..."),
+                help=t("Hệ thống sẽ dùng Key đầu tiên. Khi Key đó hết lượt/gặp lỗi (429 RateLimit), hệ thống sẽ tự động chuyển sang Key tiếp theo."),
+                height=110,
+            )
+            parsed_keys = [k.strip() for k in entered_keys_text.replace(",", "\n").split("\n") if k.strip()]
+            if parsed_keys != pool_keys:
+                rotator.set_pool_keys(parsed_keys)
+                st.rerun()
+
+            st.markdown(
+                """
+                <div style="font-size: 0.8rem; color: #888; margin-top: -6px; margin-bottom: 8px;">
+                    🔗 Lấy API Key Gemini miễn phí tại: <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #4285F4;">aistudio.google.com/apikey</a>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if pool_keys:
+                st.caption(f"💡 {t('Đang nạp')} **{len(pool_keys)}** {t('API Key trong danh sách xoay vòng.')}")
+
         config_input(
             t("BASE_URL"),
             "api.base_url",
@@ -141,12 +260,12 @@ def page_setting():
                 t("Fetch Model List"), key="fetch_models", use_container_width=True
             ):
                 with st.spinner(t("Fetching models...")):
+                    active_key, _, _ = rotator.get_active_credential()
                     models = _fetch_model_list(
-                        load_key("api.base_url"), load_key("api.key")
+                        load_key("api.base_url"), active_key
                     )
                     st.session_state["_model_list"] = models
                     if models:
-                        # Update searchbox internal state directly so dropdown shows options
                         sb_key = "model_searchbox"
                         if sb_key in st.session_state:
                             st.session_state[sb_key]["options_js"] = (
@@ -184,23 +303,24 @@ def page_setting():
             if selected and selected != load_key("api.model"):
                 update_key("api.model", selected)
 
-            if st.button("📡 " + t("Check API"), key="api", use_container_width=True):
-                with st.spinner(t("Check API") + "..."):
-                    is_valid, error = check_api()
-                show_api_check(is_valid, error)
         except ImportError:
             c1, c2 = st.columns([4, 1])
             with c1:
                 config_input(
                     t("MODEL"),
                     "api.model",
-                    help=t("click to check API validity") + " 👉",
                     placeholder=t("Search or enter model name"),
                 )
-            with c2:
-                if st.button("📡", key="api"):
-                    is_valid, error = check_api()
-                    show_api_check(is_valid, error)
+
+        auto_rotate = st.toggle(
+            t("Tự động xoay vòng khi hết Token / Lỗi (Auto-rotate)"),
+            value=rotator.is_auto_rotate_enabled(),
+            help=t("Tự động chuyển sang tài khoản hoặc API Key tiếp theo khi gặp mã lỗi 429 (hết token), 403 hoặc lỗi máy chủ."),
+        )
+        if auto_rotate != rotator.is_auto_rotate_enabled():
+            rotator.set_auto_rotate(auto_rotate)
+            st.rerun()
+
         llm_support_json = st.toggle(
             t("LLM JSON Format Support"),
             value=load_key("api.llm_support_json"),
@@ -209,6 +329,21 @@ def page_setting():
         if llm_support_json != load_key("api.llm_support_json"):
             update_key("api.llm_support_json", llm_support_json)
             st.rerun()
+
+        if st.button("📡 " + t("Kiểm tra tất cả Key / Tài khoản"), key="check_all_creds_btn", use_container_width=True):
+            creds = rotator.get_all_credentials()
+            if not creds:
+                st.warning(t("Chưa có API Key hoặc Tài khoản nào được cấu hình!"))
+            else:
+                base_u = load_key("api.base_url")
+                m_name = load_key("api.model")
+                with st.spinner(t("Đang kiểm tra từng tài khoản / API Key...")):
+                    for c in creds:
+                        ok, msg = rotator.test_single_key(c["key"], base_u, m_name)
+                        if ok:
+                            st.success(f"✅ **{c['label']}** ({c['masked']}): {msg}")
+                        else:
+                            st.error(f"❌ **{c['label']}** ({c['masked']}): {msg}")
     with st.expander(t("Subtitles Settings"), expanded=True):
         c1, c2 = st.columns(2)
         with c1:
@@ -234,7 +369,7 @@ def page_setting():
                 "local": t("Local"),
                 "elevenlabs": t("ElevenLabs"),
                 "mai": t("MAI-Transcribe-2"),
-            }[x],
+            }.get(x, x),
             help=t(
                 "Local Qwen3-ASR runs best on an NVIDIA GPU or Apple Silicon (CPU works but is slow); cloud recognition requires a provider API key."
             ),
@@ -252,7 +387,7 @@ def page_setting():
                 format_func=lambda x: {
                     "qwen": t("Qwen3-ASR + ForcedAligner (default)"),
                     "whisperx": t("WhisperX (manual install)"),
-                }[x],
+                }.get(x, x),
             )
             if backend != configured_backend:
                 update_key("whisper.backend", backend, add_missing=True)
@@ -412,7 +547,7 @@ def page_setting():
             selected_mode = st.selectbox(
                 t("Mode Selection"),
                 options=list(mode_options.keys()),
-                format_func=lambda x: mode_options[x],
+                format_func=lambda x: mode_options.get(x, str(x)),
                 index=list(mode_options.keys()).index(load_key("sf_fish_tts.mode"))
                 if load_key("sf_fish_tts.mode") in mode_options.keys()
                 else 0,
@@ -437,7 +572,7 @@ def page_setting():
             selected_mode = st.selectbox(
                 t("Mode Selection"),
                 options=list(mode_options.keys()),
-                format_func=lambda x: mode_options[x],
+                format_func=lambda x: mode_options.get(x, str(x)),
                 index=list(mode_options.keys()).index(current_mode) if current_mode in mode_options else 0,
             )
             if selected_mode != current_mode:
@@ -473,7 +608,7 @@ def page_setting():
             selected_refer_mode = st.selectbox(
                 t("Refer Mode"),
                 options=list(refer_mode_options.keys()),
-                format_func=lambda x: refer_mode_options[x],
+                format_func=lambda x: refer_mode_options.get(x, str(x)),
                 index=list(refer_mode_options.keys()).index(
                     load_key("gpt_sovits.refer_mode")
                 ),

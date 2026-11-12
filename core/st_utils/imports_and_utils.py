@@ -59,65 +59,63 @@ def give_star_button():
 
 button_style = """
 <style>
-div.stButton > button:first-child {
-    display: block;
-    padding: 0.5em 1em;
-    color: #144070;
-    background-color: transparent;
-    text-decoration: none;
-    font-weight: bold;
-    text-align: center;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-    border: 2px solid #D0DFF2;
-    font-size: 1.2em;
-}
-div.stButton > button:hover {
-    background-color: transparent;
-    color: #144070;
-    border-color: #144070;
-}
-div.stButton > button:active, div.stButton > button:focus {
-    background-color: transparent !important;
-    color: #144070 !important;
-    border-color: #144070 !important;
-    box-shadow: none !important;
-}
-div.stButton > button:active:hover, div.stButton > button:focus:hover {
-    background-color: transparent !important;
-    color: #144070 !important;
-    border-color: #144070 !important;
-    box-shadow: none !important;
-}
+div.stButton > button:first-child,
 div.stDownloadButton > button:first-child {
     display: block;
-    padding: 0.5em 1em;
-    color: #144070;
-    background-color: transparent;
+    width: 100%;
+    padding: 0.55em 1.2em;
+    color: #1a56db;
+    background-color: #f8faff;
     text-decoration: none;
-    font-weight: bold;
+    font-weight: 600;
     text-align: center;
-    transition: all 0.3s ease;
+    transition: all 0.15s ease-in-out;
     box-sizing: border-box;
-    border: 2px solid #D0DFF2;
-    font-size: 1.2em;
+    border: 2px solid #b8d5fb;
+    border-radius: 8px;
+    font-size: 1.1em;
+    cursor: pointer !important;
+    user-select: none;
 }
-div.stDownloadButton > button:hover {
-    background-color: transparent;
-    color: #144070;
-    border-color: #144070;
+div.stButton > button:first-child:hover,
+div.stDownloadButton > button:first-child:hover {
+    background-color: #eaf2ff !important;
+    color: #1043a6 !important;
+    border-color: #79aef7 !important;
+    box-shadow: 0 2px 8px rgba(26, 86, 219, 0.18) !important;
 }
-div.stDownloadButton > button:active, div.stDownloadButton > button:focus {
-    background-color: transparent !important;
-    color: #144070 !important;
-    border-color: #144070 !important;
-    box-shadow: none !important;
+div.stButton > button:first-child:active,
+div.stDownloadButton > button:first-child:active {
+    transform: scale(0.98) !important;
+    background-color: #d8e8fe !important;
+    border-color: #1a56db !important;
+    box-shadow: 0 1px 2px rgba(26, 86, 219, 0.2) !important;
 }
-div.stDownloadButton > button:active:hover, div.stDownloadButton > button:focus:hover {
-    background-color: transparent !important;
-    color: #144070 !important;
-    border-color: #144070 !important;
-    box-shadow: none !important;
+div.stButton > button:first-child:focus,
+div.stDownloadButton > button:first-child:focus {
+    outline: none !important;
+    border-color: #1a56db !important;
+}
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    div.stButton > button:first-child,
+    div.stDownloadButton > button:first-child {
+        color: #93c5fd !important;
+        background-color: #1e293b !important;
+        border-color: #3b82f6 !important;
+    }
+    div.stButton > button:first-child:hover,
+    div.stDownloadButton > button:first-child:hover {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border-color: #60a5fa !important;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+    }
+    div.stButton > button:first-child:active,
+    div.stDownloadButton > button:first-child:active {
+        background-color: #1d4ed8 !important;
+        color: #ffffff !important;
+    }
 }
 </style>
 """

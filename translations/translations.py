@@ -1,6 +1,7 @@
 import json
 
 DISPLAY_LANGUAGES = {
+    "🇻🇳 Tiếng Việt": "vi",
     "🇬🇧 English": "en",
     "🇨🇳 简体中文": "zh-CN",
     "🇭🇰 繁体中文": "zh-HK",
@@ -22,6 +23,8 @@ def normalize_language_code(language):
         return "zh-CN"
     if code in {"zh-hk", "zh-tw", "zh-mo", "zh-hant"}:
         return "zh-HK"
+    if code in {"vi", "vi-vn"}:
+        return "vi"
 
     base_code = code.split("-")[0]
     if base_code in SUPPORTED_LANGUAGES:
@@ -46,6 +49,15 @@ def _config_language():
         return None
 
 
+def _browser_language():
+    try:
+        import streamlit as st
+
+        return _language_from_accept_language(st.context.headers.get("accept-language", ""))
+    except Exception:
+        return None
+
+
 def _streamlit_language():
     try:
         import streamlit as st
@@ -60,17 +72,17 @@ def _streamlit_language():
         if query_language:
             return query_language
 
-        return _language_from_accept_language(st.context.headers.get("accept-language", ""))
+        return None
     except Exception:
         return None
 
 
-def get_current_language(default="en"):
-    return _streamlit_language() or _config_language() or default
+def get_current_language(default="vi"):
+    return _streamlit_language() or _config_language() or _browser_language() or default
 
 
 def init_display_language():
-    language = get_current_language(default="en")
+    language = get_current_language(default="vi")
     try:
         import streamlit as st
 

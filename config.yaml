@@ -7,27 +7,28 @@
 
 ## ======================== Basic Settings ======================== ##
 
-display_language: "zh-CN"
+display_language: "vi"
 
 # API settings
 api:
   key: 'YOUR_API_KEY'
-  base_url: 'https://api.openlux.ai/v1'
+  base_url: 'https://generativelanguage.googleapis.com/v1beta/openai'
   model: 'gpt-6-luna'
-  llm_support_json: false
+  llm_support_json: true
 # *Number of LLM multi-threaded accesses, set to 1 if using local LLM
+  auth_mode: gemini_accounts
 max_workers: 4
 
 # Language settings, written into the prompt, can be described in natural language
-target_language: '简体中文'
+target_language: 'Tiếng Việt'
 
 # Whether to use Demucs for vocal separation before transcription
 demucs: false
 
 whisper:
   # Recognition language ISO 639-1, or "auto"
-  language: 'en'
-  detected_language: 'en'
+  language: 'zh'
+  detected_language: 'zh'
   # Recognition runtime: "local" (default), "elevenlabs" or "mai" (MAI-Transcribe-2).
   runtime: 'local'
   # Local ASR backend: "qwen" (default: Qwen3-ASR + Qwen3-ForcedAligner-0.6B) or "whisperx".
@@ -72,7 +73,7 @@ subtitle:
   # *Translated subtitles are slightly larger than source subtitles, affecting the reference length for subtitle splitting
   target_multiplier: 1.2
   # *Subtitles burned into the subtitle video and into the dubbed video [bilingual, translation, source]
-  sub_video_subtitles: 'bilingual'
+  sub_video_subtitles: 'translation'
   dub_video_subtitles: 'translation'
   # *Style of the burned-in subtitles. Colors are &HBBGGRR, &HAABBGGRR (AA is the transparency) or #RRGGBB. An empty font_name uses the default font of the system
   style:

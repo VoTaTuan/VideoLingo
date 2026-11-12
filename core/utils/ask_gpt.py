@@ -104,16 +104,16 @@ def parse_json_response(resp_content):
 
 @except_handler("GPT request failed", retry=5)
 def ask_gpt(prompt, resp_type=None, valid_def=None, log_title="default"):
-    api_key = get_api_key()
     # check cache
     cached = _load_cache(prompt, resp_type, log_title)
     if cached:
         rprint("use cache response")
         return cached
 
+    from core.utils.llm_rotator import rotator
+
     model = load_key("api.model")
     base_url = normalize_base_url(load_key("api.base_url"))
-    client = OpenAI(api_key=api_key, base_url=base_url)
     response_format = {"type": "json_object"} if resp_type == "json" and load_key("api.llm_support_json") else None
 
     messages = [{"role": "user", "content": prompt}]
@@ -125,28 +125,50 @@ def ask_gpt(prompt, resp_type=None, valid_def=None, log_title="default"):
     )
     if response_format is not None:
         params["response_format"] = response_format
-    resp_raw = client.chat.completions.create(**params)
 
-    # process and return full result
-    resp_content = resp_raw.choices[0].message.content
-    if resp_type == "json":
+    auto_rotate = rotator.is_auto_rotate_enabled()
+    pool_size = max(1, len(rotator.get_all_credentials()))
+    max_rotation_attempts = (pool_size * 2) if auto_rotate and pool_size > 1 else 1
+
+    last_error = None
+    for attempt in range(max_rotation_attempts):
+        api_key, label, _ = rotator.get_active_credential()
+        if not api_key:
+            api_key = get_api_key()
+
+        client = OpenAI(api_key=api_key, base_url=base_url)
         try:
-            resp = parse_json_response(resp_content)
-        except ValueError as e:
-            _save_cache(model, prompt, resp_content, resp_type, None, log_title="error", message=str(e))
-            raise
-    else:
-        resp = resp_content
-    
-    # check if the response format is valid
-    if valid_def:
-        valid_resp = valid_def(resp)
-        if valid_resp['status'] != 'success':
-            _save_cache(model, prompt, resp_content, resp_type, resp, log_title="error", message=valid_resp['message'])
-            raise ValueError(f"❎ API response error: {valid_resp['message']}")
+            resp_raw = client.chat.completions.create(**params)
+            resp_content = resp_raw.choices[0].message.content
+            if resp_type == "json":
+                try:
+                    resp = parse_json_response(resp_content)
+                except ValueError as e:
+                    _save_cache(model, prompt, resp_content, resp_type, None, log_title="error", message=str(e))
+                    raise
+            else:
+                resp = resp_content
 
-    _save_cache(model, prompt, resp_content, resp_type, resp, log_title=log_title)
-    return resp
+            # check if the response format is valid
+            if valid_def:
+                valid_resp = valid_def(resp)
+                if valid_resp['status'] != 'success':
+                    _save_cache(model, prompt, resp_content, resp_type, resp, log_title="error", message=valid_resp['message'])
+                    raise ValueError(f"❎ API response error: {valid_resp['message']}")
+
+            _save_cache(model, prompt, resp_content, resp_type, resp, log_title=log_title)
+            return resp
+
+        except Exception as e:
+            last_error = e
+            # If auto-rotation is enabled and we have multiple credentials, rotate and retry
+            if auto_rotate and pool_size > 1 and attempt < max_rotation_attempts - 1:
+                rotator.mark_failed_and_rotate(e, api_key, label)
+                continue
+            raise e
+
+    if last_error:
+        raise last_error
 
 
 if __name__ == '__main__':

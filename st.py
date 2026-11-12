@@ -333,12 +333,21 @@ def main():
         st.image("docs/logo.png", width="stretch")
     with lang_col:
         language_values = list(DISPLAY_LANGUAGES.values())
+        language_keys = list(DISPLAY_LANGUAGES.keys())
         current_language = init_display_language()
+        current_idx = language_values.index(current_language) if current_language in language_values else 0
+
+        def _on_display_lang_change():
+            sel = st.session_state.get("display_language_select")
+            if sel in DISPLAY_LANGUAGES:
+                set_display_language(DISPLAY_LANGUAGES[sel])
+
         selected_language = st.selectbox(
             t("Display Language 🌐"),
-            options=list(DISPLAY_LANGUAGES.keys()),
-            index=language_values.index(current_language) if current_language in language_values else 0,
-            key="display_language_selector",
+            options=language_keys,
+            index=current_idx,
+            key="display_language_select",
+            on_change=_on_display_lang_change,
         )
         new_language = DISPLAY_LANGUAGES[selected_language]
         if new_language != current_language:
@@ -362,6 +371,13 @@ def main():
         from core._1_ytdlp import is_audio_only_input
         if text_done and not is_audio_only_input():
             audio_processing_section()
+    else:
+        with st.container(border=True):
+            st.info(
+                "💡 **Quy trình hoạt động:** Phần mềm được thiết kế theo các bước tuần tự.\n\n"
+                "👉 **Bước 1:** Hãy dán liên kết YouTube (rồi bấm **Tải video**) hoặc kéo thả một tệp video từ máy vào khung **a. Tải xuống hoặc Tải lên Video** ở trên.\n\n"
+                "👉 **Bước 2:** Sau khi video được nạp thành công, nút **'Bắt đầu xử lý phụ đề'** (Dịch thuật & Render video) sẽ tự động xuất hiện ngay tại đây!"
+            )
 
 
 if __name__ == "__main__":
